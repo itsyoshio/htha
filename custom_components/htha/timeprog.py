@@ -124,6 +124,53 @@ def build_window_entries(
     return entries
 
 
+def build_day_entries(prog: dict[str, Any], periods: list[dict[str, Any]]) -> list[TimeProgEntry]:
+    """Build the complete list of entries for one day from a list of periods.
+
+    ``periods`` is a list of ``{"state": int, "start": "HH:MM", "end": "HH:MM"}``.
+    Periods are sorted by start time, must not overlap and must not be empty.
+    Unused entries are filled with ``24:00-24:00`` (state 0) like the heat pump does.
+    """
+    ead = int(prog["ead"])
+    parsed: list[tuple[int, str, str]] = []
+    for period in periods:
+        start = normalize_time(period["start"])
+        end = normalize_time(period["end"], is_end=True)
+        if start == end:
+            continue  # ignore empty periods (e.g. 24:00-24:00 placeholders)
+        if _minutes(start) > _minutes(end):
+            raise ValueError(f"start ({start}) must be before end ({end})")
+        parsed.append((int(period.get("state", 0)), start, end))
+    parsed.sort(key=lambda p: _minutes(p[1]))
+    for prev, cur in zip(parsed, parsed[1:]):
+        if _minutes(cur[1]) < _minutes(prev[2]):
+            raise ValueError(f"periods overlap: {prev[1]}-{prev[2]} and {cur[1]}-{cur[2]}")
+    # Cover the whole day like the heat pump does: fill gaps with state 0 ...
+    filled: list[tuple[int, str, str]] = []
+    cursor = "00:00"
+    for state, start, end in parsed:
+        if _minutes(start) > _minutes(cursor):
+            filled.append((0, cursor, start))
+        filled.append((state, start, end))
+        cursor = end
+    if _minutes(cursor) < _minutes(END_OF_DAY):
+        filled.append((0, cursor, END_OF_DAY))
+    # ... and merge adjacent periods with the same state to save entries
+    parsed = []
+    for state, start, end in filled:
+        if parsed and parsed[-1][0] == state and parsed[-1][2] == start:
+            parsed[-1] = (state, parsed[-1][1], end)
+        else:
+            parsed.append((state, start, end))
+    if len(parsed) > ead:
+        raise ValueError(f"time program only supports {ead} entries a day")
+    while len(parsed) < ead:
+        parsed.append((0, END_OF_DAY, END_OF_DAY))
+    entries = [TimeProgEntry(state, TimeProgPeriod.from_str(beg, fin)) for state, beg, fin in parsed]
+    validate_entries(prog, entries)
+    return entries
+
+
 def build_single_entry(prog: dict[str, Any], state: int, start: str, end: str) -> TimeProgEntry:
     """Build and validate a single time program entry."""
     entry = TimeProgEntry(int(state), TimeProgPeriod.from_str(normalize_time(start), normalize_time(end, is_end=True)))

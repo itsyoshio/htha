@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
@@ -29,6 +30,8 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+FRONTEND_URL_BASE = "/htha_static"
+
 # Config schema for config entry only integration
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -40,7 +43,6 @@ PLATFORMS: list[Platform] = [
     Platform.SELECT,
     Platform.SWITCH,
     Platform.DATETIME,
-    Platform.TIME,
     Platform.BUTTON,
 ]
 
@@ -60,7 +62,31 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """
     _LOGGER.info("Setting up %s integration", DOMAIN)
     async_setup_services(hass)
+    await _async_register_frontend(hass)
     return True
+
+
+async def _async_register_frontend(hass: HomeAssistant) -> None:
+    """Serve the bundled Lovelace card and load it in the frontend."""
+    from homeassistant.components.frontend import add_extra_js_url
+    from homeassistant.components.http import StaticPathConfig
+
+    version = "0"
+    try:
+        from homeassistant.loader import async_get_integration
+
+        version = str((await async_get_integration(hass, DOMAIN)).version)
+    except Exception:  # noqa: BLE001
+        pass
+    www = Path(__file__).parent / "www"
+    try:
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(FRONTEND_URL_BASE, str(www), True)]
+        )
+    except RuntimeError:
+        # already registered (e.g. after a reload)
+        pass
+    add_extra_js_url(hass, f"{FRONTEND_URL_BASE}/htha-time-program-card.js?v={version}")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: HtHAConfigEntry) -> bool:

@@ -224,12 +224,20 @@ immediately after a change made through one of the services below.
 Days are numbered `0 = Monday` ... `6 = Sunday`. Times must be multiples of the program's step
 size (usually 15 minutes). Writing requires the **Allow writing** switch to be on.
 
-### Time entities
+### Lovelace card
 
-For simple on/off programs (e.g. *Warmwasser*, *Zirkulationspumpe*) two time entities are created:
-`<Program> Window Start` and `<Program> Window End` (e.g. `time.heliotherm_heat_pump_hot_water_window_start`).
-They show today's active window; changing one of them applies the window to **every day** of
-the program (requires **Allow writing**). The attribute `windows_per_day` lists the windows of all days.
+The integration ships a weekly time program card (loaded automatically, no extra resource needed):
+
+```yaml
+type: custom:htha-time-program-card
+programs: [0, 1]          # optional: indexes or names, default all
+state_names:              # optional labels per program index
+  2: [Absenkung, Normal, Komfort]
+```
+
+It shows Monday to Sunday for every program as a timeline. Tap a day to edit its periods
+(state, start, end); gaps are filled with state 0 automatically. *Apply to* copies the day to
+other days. Saving requires **Allow writing**.
 
 ### `htha.set_time_window`
 
@@ -258,6 +266,20 @@ data:
   state: 2
   start: "06:00"
   end: "22:00"
+```
+
+### `htha.set_time_program_day`
+
+Replaces all entries of the selected days (used by the card).
+
+```yaml
+action: htha.set_time_program_day
+data:
+  time_program: Warmwasser
+  days: [mon, tue]
+  entries:
+    - {state: 1, start: "04:00", end: "06:00"}
+    - {state: 1, start: "09:00", end: "19:00"}
 ```
 
 ### `htha.refresh_time_programs`

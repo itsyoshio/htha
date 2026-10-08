@@ -335,6 +335,28 @@
                 }
             }
         },
+        "set_time_program_day": {
+            "name": "Zeitprogramm-Tag setzen",
+            "description": "Ersetzt alle Einträge der gewählten Tage durch die angegebenen Zeiträume (Zustand, Beginn, Ende). Schreibzugriff muss aktiviert sein.",
+            "fields": {
+                "config_entry_id": {
+                    "name": "Wärmepumpe",
+                    "description": "Nur nötig, wenn mehr als eine Wärmepumpe eingerichtet ist."
+                },
+                "time_program": {
+                    "name": "Zeitprogramm",
+                    "description": "Index oder Name des Zeitprogramms, z. B. 0 / \"Warmwasser\" oder 1 / \"Zirkulationspumpe\" (siehe Sensor Zeitprogramme)."
+                },
+                "days": {
+                    "name": "Tage",
+                    "description": "Zu ändernde Tage. Standard: jeden Tag."
+                },
+                "entries": {
+                    "name": "Einträge",
+                    "description": "Liste von Zeiträumen: state, start, end (HH:MM). Freie Einträge werden automatisch aufgefüllt."
+                }
+            }
+        },
         "refresh_time_programs": {
             "name": "Zeitprogramme neu einlesen",
             "description": "Liest alle Zeitprogramme sofort von der Wärmepumpe (sonst stündlich).",

@@ -124,3 +124,32 @@ def test_active_windows():
     ] + [{"state": 0, "start": "24:00", "end": "24:00"}] * 3]
     assert tp.active_windows(prog, 0) == [("00:00", "08:00"), ("17:00", "24:00")]
     assert tp.active_windows(PROGS[1], 0) == []
+
+
+def test_build_day_entries_fills_gaps_and_merges():
+    entries = tp.build_day_entries(
+        PROGS[0],
+        [
+            {"state": 1, "start": "09:00", "end": "19:00"},
+            {"state": 1, "start": "04:00", "end": "06:00"},
+            {"state": 0, "start": "19:00", "end": "24:00"},
+        ],
+    )
+    got = [(e.state, e.period.start_str, e.period.end_str) for e in entries]
+    assert got[:5] == [
+        (0, "00:00", "04:00"),
+        (1, "04:00", "06:00"),
+        (0, "06:00", "09:00"),
+        (1, "09:00", "19:00"),
+        (0, "19:00", "24:00"),
+    ]
+    assert got[5:] == [(0, "24:00", "24:00")] * 2
+
+
+def test_build_day_entries_errors():
+    with pytest.raises(ValueError):
+        tp.build_day_entries(PROGS[0], [{"state": 1, "start": "04:00", "end": "08:00"},
+                                         {"state": 1, "start": "07:00", "end": "09:00"}])
+    with pytest.raises(ValueError):  # 4 windows -> 9 periods > 7 entries
+        tp.build_day_entries(PROGS[0], [{"state": 1, "start": f"{h:02d}:00", "end": f"{h:02d}:30"}
+                                         for h in (2, 6, 10, 14)])

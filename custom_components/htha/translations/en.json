@@ -335,6 +335,28 @@
                 }
             }
         },
+        "set_time_program_day": {
+            "name": "Set time program day",
+            "description": "Replaces all entries of the selected days with the given periods (state, start, end). Requires write access to be enabled.",
+            "fields": {
+                "config_entry_id": {
+                    "name": "Heat pump",
+                    "description": "Only needed if more than one heat pump is configured."
+                },
+                "time_program": {
+                    "name": "Time program",
+                    "description": "Index or name of the time program, e.g. 0 / \"Warmwasser\" or 1 / \"Zirkulationspumpe\" (see the Time Programs sensor)."
+                },
+                "days": {
+                    "name": "Days",
+                    "description": "Days to change. Default: every day."
+                },
+                "entries": {
+                    "name": "Entries",
+                    "description": "List of periods: state, start, end (HH:MM). Unused entries are filled automatically."
+                }
+            }
+        },
         "refresh_time_programs": {
             "name": "Refresh time programs",
             "description": "Reads all time programs from the heat pump immediately (normally refreshed hourly).",

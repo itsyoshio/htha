@@ -114,6 +114,43 @@ set_time_program_entry:
       selector:
         time:
 
+set_time_program_day:
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: htha
+    time_program:
+      required: true
+      example: "Warmwasser"
+      selector:
+        text:
+    days:
+      required: false
+      example: "sat"
+      default: all
+      selector:
+        select:
+          multiple: true
+          translation_key: days
+          options:
+            - all
+            - weekdays
+            - weekend
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+    entries:
+      required: true
+      example: '[{"state": 0, "start": "00:00", "end": "06:00"}, {"state": 1, "start": "06:00", "end": "22:00"}, {"state": 0, "start": "22:00", "end": "24:00"}]'
+      selector:
+        object:
+
 refresh_time_programs:
   fields:
     config_entry_id:

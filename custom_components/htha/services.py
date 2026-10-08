@@ -14,6 +14,7 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import CONF_WRITE_ENABLED, DOMAIN
 from .timeprog import (
+    build_day_entries,
     build_single_entry,
     build_window_entries,
     current_entry,
@@ -28,6 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_SET_TIME_WINDOW = "set_time_window"
 SERVICE_SET_TIME_PROGRAM_ENTRY = "set_time_program_entry"
+SERVICE_SET_TIME_PROGRAM_DAY = "set_time_program_day"
 SERVICE_REFRESH_TIME_PROGRAMS = "refresh_time_programs"
 
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
@@ -38,6 +40,7 @@ ATTR_END = "end"
 ATTR_STATE = "state"
 ATTR_OFF_STATE = "off_state"
 ATTR_ENTRY = "entry"
+ATTR_ENTRIES = "entries"
 
 _PROGRAM = vol.Any(vol.Coerce(int), cv.string)
 _DAYS = vol.Any(cv.string, vol.Coerce(int), [vol.Any(vol.Coerce(int), cv.string)])
@@ -68,6 +71,23 @@ SET_TIME_PROGRAM_ENTRY_SCHEMA = vol.Schema(
         vol.Required(ATTR_STATE): vol.Coerce(int),
         vol.Required(ATTR_START): _TIME,
         vol.Required(ATTR_END): _TIME,
+    }
+)
+
+SET_TIME_PROGRAM_DAY_SCHEMA = vol.Schema(
+    {
+        **BASE_SCHEMA,
+        vol.Required(ATTR_TIME_PROGRAM): _PROGRAM,
+        vol.Optional(ATTR_DAYS): _DAYS,
+        vol.Required(ATTR_ENTRIES): [
+            vol.Schema(
+                {
+                    vol.Required(ATTR_STATE): vol.Coerce(int),
+                    vol.Required(ATTR_START): _TIME,
+                    vol.Required(ATTR_END): _TIME,
+                }
+            )
+        ],
     }
 )
 
@@ -169,6 +189,20 @@ def async_setup_services(hass: HomeAssistant) -> None:
         wanted = {(day, num): tp_entry for day in days}
         return await write_wanted_entries(coordinator, prog, wanted)
 
+    async def set_time_program_day(call: ServiceCall) -> ServiceResponse:
+        entry = _get_entry(hass, call)
+        _check_write_enabled(entry)
+        coordinator: HtHACoordinator = entry.runtime_data
+        prog = await _get_program(coordinator, call.data[ATTR_TIME_PROGRAM])
+        try:
+            days = resolve_days(call.data.get(ATTR_DAYS))
+            entries = build_day_entries(prog, call.data[ATTR_ENTRIES])
+        except ValueError as ex:
+            raise ServiceValidationError(str(ex)) from ex
+        days = [d for d in days if d < int(prog["nod"])]
+        wanted = {(day, num): e for day in days for num, e in enumerate(entries)}
+        return await write_wanted_entries(coordinator, prog, wanted)
+
     async def refresh_time_programs(call: ServiceCall) -> ServiceResponse:
         entry = _get_entry(hass, call)
         coordinator: HtHACoordinator = entry.runtime_data
@@ -187,6 +221,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_SET_TIME_PROGRAM_ENTRY,
         set_time_program_entry,
         schema=SET_TIME_PROGRAM_ENTRY_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_TIME_PROGRAM_DAY,
+        set_time_program_day,
+        schema=SET_TIME_PROGRAM_DAY_SCHEMA,
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
