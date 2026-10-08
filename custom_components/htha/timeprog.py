@@ -151,6 +151,23 @@ def current_entry(prog: dict[str, Any], day: int, num: int) -> TimeProgEntry | N
     return TimeProgEntry.from_json(raw)
 
 
+def active_windows(prog: dict[str, Any], day: int, on_state: int = 1) -> list[tuple[str, str]]:
+    """Return the merged active windows (start, end) of a day from the cached program."""
+    windows: list[list[str]] = []
+    for num in range(int(prog.get("ead", 0))):
+        entry = current_entry(prog, day, num)
+        if entry is None or entry.state != on_state:
+            continue
+        start, end = entry.period.start_str, entry.period.end_str
+        if start == end:
+            continue
+        if windows and windows[-1][1] == start:
+            windows[-1][1] = end
+        else:
+            windows.append([start, end])
+    return [(s, e) for s, e in windows]
+
+
 def _minutes(hhmm: str) -> int:
     hour, minute = hhmm.split(":")
     return int(hour) * 60 + int(minute)

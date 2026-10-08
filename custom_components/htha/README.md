@@ -150,6 +150,13 @@ immediately after a change made through one of the services below.
 Days are numbered `0 = Monday` ... `6 = Sunday`. Times must be multiples of the program's step
 size (usually 15 minutes). Writing requires the **Allow writing** switch to be on.
 
+### Time entities
+
+For simple on/off programs (e.g. *Warmwasser*, *Zirkulationspumpe*) two time entities are created:
+`<Program> Window Start` and `<Program> Window End` (e.g. `time.heliotherm_heat_pump_hot_water_window_start`).
+They show today's active window; changing one of them applies the window to **every day** of
+the program (requires **Allow writing**). The attribute `windows_per_day` lists the windows of all days.
+
 ### `htha.set_time_window`
 
 Sets one active window per day (off before, on inside, off after). Unused entries are filled with

@@ -109,7 +109,7 @@ def _check_write_enabled(entry) -> None:
         )
 
 
-async def _write(
+async def write_wanted_entries(
     coordinator: HtHACoordinator, prog: dict[str, Any], wanted: dict[tuple[int, int], Any]
 ) -> dict[str, Any]:
     """Write only the entries that differ from the cached program."""
@@ -146,7 +146,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
             raise ServiceValidationError(str(ex)) from ex
         days = [d for d in days if d < int(prog["nod"])]
         wanted = {(day, num): e for day in days for num, e in enumerate(entries)}
-        return await _write(coordinator, prog, wanted)
+        return await write_wanted_entries(coordinator, prog, wanted)
 
     async def set_time_program_entry(call: ServiceCall) -> ServiceResponse:
         entry = _get_entry(hass, call)
@@ -167,7 +167,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
             raise ServiceValidationError(str(ex)) from ex
         days = [d for d in days if d < int(prog["nod"])]
         wanted = {(day, num): tp_entry for day in days}
-        return await _write(coordinator, prog, wanted)
+        return await write_wanted_entries(coordinator, prog, wanted)
 
     async def refresh_time_programs(call: ServiceCall) -> ServiceResponse:
         entry = _get_entry(hass, call)

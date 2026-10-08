@@ -111,3 +111,16 @@ def test_current_entry_skips_unchanged():
     wanted = tp.build_window_entries(PROGS[0], "08:30", "19:00")
     assert all(tp.current_entry(PROGS[0], 0, n) == e for n, e in enumerate(wanted))
     assert tp.current_entry(PROGS[1], 0, 0) is None
+
+
+def test_active_windows():
+    assert tp.active_windows(PROGS[0], 0) == [("08:30", "19:00")]
+    prog = dict(PROGS[0])
+    prog["entries"] = [[
+        {"state": 1, "start": "00:00", "end": "06:00"},
+        {"state": 1, "start": "06:00", "end": "08:00"},
+        {"state": 0, "start": "08:00", "end": "17:00"},
+        {"state": 1, "start": "17:00", "end": "24:00"},
+    ] + [{"state": 0, "start": "24:00", "end": "24:00"}] * 3]
+    assert tp.active_windows(prog, 0) == [("00:00", "08:00"), ("17:00", "24:00")]
+    assert tp.active_windows(PROGS[1], 0) == []
