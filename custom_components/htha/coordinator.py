@@ -76,6 +76,10 @@ class HtHACoordinator(DataUpdateCoordinator[dict[str, HtParamValueType]]):
 
         # Cache for time programs
         self.time_programs: list[dict] | None = None
+
+        # Heat pump clock (as read from the device) and when it was read (HA time)
+        self.ht_datetime: datetime | None = None
+        self.ht_datetime_read_at: datetime | None = None
         self._last_time_programs_update: float = 0
 
         # Separate parameters by type for efficient querying
@@ -292,6 +296,10 @@ class HtHACoordinator(DataUpdateCoordinator[dict[str, HtParamValueType]]):
                         await self._fetch_time_programs()
                     except Exception as prog_ex:
                         _LOGGER.warning("Failed to fetch time programs: %s", prog_ex)
+                    try:
+                        await self._read_datetime()
+                    except Exception as dt_ex:
+                        _LOGGER.warning("Failed to read heat pump date/time: %s", dt_ex)
 
                 if not data:
                     raise UpdateFailed("No data received from heat pump")
@@ -361,6 +369,23 @@ class HtHACoordinator(DataUpdateCoordinator[dict[str, HtParamValueType]]):
             detailed_progs.append(detailed.as_json())
         self.time_programs = detailed_progs
         self._last_time_programs_update = asyncio.get_running_loop().time()
+
+    async def _read_datetime(self) -> datetime:
+        """Read the heat pump clock into the cache.
+
+        Must be called under self._connection_lock with an open connection.
+        """
+        assert self._heatpump is not None
+        ht_datetime, _ = await self._heatpump.get_date_time_async()
+        self._store_datetime(ht_datetime)
+        return self.ht_datetime
+
+    def _store_datetime(self, value: datetime) -> None:
+        """Store a clock value read from / written to the heat pump (local time)."""
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=dt_util.get_default_time_zone())
+        self.ht_datetime = value
+        self.ht_datetime_read_at = dt_util.now()
 
     async def async_refresh_time_programs(self) -> list[dict]:
         """Force a re-read of all time programs from the heat pump."""
@@ -443,7 +468,7 @@ class HtHACoordinator(DataUpdateCoordinator[dict[str, HtParamValueType]]):
 
                 _LOGGER.debug("Calling get_date_time_async on heat pump")
                 # get_date_time_async returns tuple (datetime, weekday)
-                ht_datetime, _ = await self._heatpump.get_date_time_async()
+                ht_datetime = await self._read_datetime()
                 _LOGGER.debug("Heat pump date/time: %s", ht_datetime)
 
                 return ht_datetime
@@ -479,10 +504,11 @@ class HtHACoordinator(DataUpdateCoordinator[dict[str, HtParamValueType]]):
                     dt = dt_util.now()
 
                 # set_date_time_async returns tuple (datetime, weekday)
-                ht_datetime, _ = await self._heatpump.set_date_time_async(dt)
+                ht_datetime, _ = await self._heatpump.set_date_time_async(dt_util.as_local(dt))
                 _LOGGER.info("Set heat pump date/time to: %s", ht_datetime)
+                self._store_datetime(ht_datetime)
 
-                return ht_datetime
+                return self.ht_datetime
 
             except Exception as ex:
                 self._connected = False

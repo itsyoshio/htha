@@ -96,7 +96,6 @@ class HtHADateTimeSyncButton(ButtonEntity):
 
         if result:
             _LOGGER.info("Heat pump date/time synced to: %s", result)
-            from .datetime import set_cached_datetime
-            set_cached_datetime(result)
+            self.coordinator.async_update_listeners()
         else:
             _LOGGER.warning("Failed to sync heat pump date/time")

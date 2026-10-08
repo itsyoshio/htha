@@ -3,31 +3,29 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import Any
 
 from homeassistant.components.datetime import (
     DateTimeEntity,
     DateTimeEntityDescription,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
-from .coordinator import HtHACoordinator
 from . import HtHAConfigEntry
-
-if TYPE_CHECKING:
-    from datetime import datetime
+from .entity import HtHAEntity
 
 _LOGGER = logging.getLogger(__name__)
 
+# key "datetime" keeps the unique id "<entry_id>_datetime" of earlier versions
 HT_DATETIME_DESCRIPTION = DateTimeEntityDescription(
-    key="ht_datetime",
+    key="datetime",
     translation_key="ht_datetime",
     icon="mdi:clock-outline",
-    name="Heat Pump Date/Time",
 )
-
-_cached_datetime: datetime | None = None
 
 
 async def async_setup_entry(
@@ -35,80 +33,44 @@ async def async_setup_entry(
     config_entry: HtHAConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Ht HA datetime entities from a config entry.
-
-    Args:
-        hass: Home Assistant instance
-        config_entry: Config entry
-        async_add_entities: Callback to add entities
-    """
-    _LOGGER.debug("Setting up Ht HA datetime entities")
-
+    """Set up Ht HA datetime entities from a config entry."""
     coordinator = config_entry.runtime_data
-
-    async_add_entities(
-        [
-            HtHADateTimeEntity(
-                coordinator=coordinator,
-                config_entry=config_entry,
-                description=HT_DATETIME_DESCRIPTION,
-            )
-        ]
-    )
+    async_add_entities([HtHADateTimeEntity(coordinator, config_entry, HT_DATETIME_DESCRIPTION)])
 
 
-def set_cached_datetime(value: datetime) -> None:
-    """Update cached datetime (called by button)."""
-    global _cached_datetime
-    if value is not None and value.tzinfo is None:
-        from homeassistant.util import dt as dt_util
-        value = dt_util.as_local(value)
-    _cached_datetime = value
-    _LOGGER.debug("Cached datetime updated: %s", value)
+class HtHADateTimeEntity(HtHAEntity, DateTimeEntity):
+    """Clock of the heat pump.
 
-
-class HtHADateTimeEntity(DateTimeEntity):
-    """Datetime entity for heat pump date/time.
-
-    This entity displays the heat pump's date and time.
-    Updated manually via the sync button.
+    The clock is read from the heat pump hourly (together with the time programs)
+    and whenever it is set. In between, the value is extrapolated from the last read.
+    Setting a value writes it to the heat pump.
     """
-
-    _attr_has_entity_name = True
-
-    def __init__(
-        self,
-        coordinator: HtHACoordinator,
-        config_entry: HtHAConfigEntry,
-        description: DateTimeEntityDescription,
-    ) -> None:
-        """Initialize the date/time entity.
-
-        Args:
-            coordinator: Data coordinator
-            config_entry: Config entry
-            description: Entity description
-        """
-        self.coordinator = coordinator
-        self.entity_description = description
-        self._attr_unique_id = f"{config_entry.entry_id}_datetime"
-
-        from homeassistant.helpers.entity import DeviceInfo
-        from .const import DOMAIN
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, str(config_entry.entry_id))},
-            name="Heliotherm Heat Pump",
-            manufacturer="Heliotherm",
-            model="Heat Pump",
-            configuration_url=f"http://{coordinator.host}:{coordinator.port}",
-        )
-
-    @property
-    def icon(self) -> str | None:
-        """Return icon."""
-        return "mdi:clock-outline"
 
     @property
     def native_value(self) -> datetime | None:
-        """Return the cached datetime value."""
-        return _cached_datetime
+        """Return the (extrapolated) heat pump date/time."""
+        ht_dt = self.coordinator.ht_datetime
+        read_at = self.coordinator.ht_datetime_read_at
+        if ht_dt is None or read_at is None:
+            return None
+        value = ht_dt + (dt_util.now() - read_at)
+        return value.replace(second=0, microsecond=0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return offset to Home Assistant time and when the clock was read."""
+        ht_dt = self.coordinator.ht_datetime
+        read_at = self.coordinator.ht_datetime_read_at
+        if ht_dt is None or read_at is None:
+            return None
+        return {
+            "offset_seconds": round((ht_dt - read_at).total_seconds()),
+            "last_read": read_at.isoformat(timespec="seconds"),
+        }
+
+    async def async_set_value(self, value: datetime) -> None:
+        """Write a new date/time to the heat pump."""
+        result = await self.coordinator.async_set_datetime(dt_util.as_local(value))
+        if result is None:
+            raise HomeAssistantError("Failed to set the heat pump date/time")
+        self.coordinator.async_update_listeners()

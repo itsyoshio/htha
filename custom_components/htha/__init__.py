@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_URL_BASE = "/htha_static"
+CARD_FILE = "htha-time-program-card.js"
 
 # Config schema for config entry only integration
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -67,8 +69,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def _async_register_frontend(hass: HomeAssistant) -> None:
-    """Serve the bundled Lovelace card and load it in the frontend."""
-    from homeassistant.components.frontend import add_extra_js_url
+    """Serve the bundled Lovelace card and register it as dashboard resource."""
     from homeassistant.components.http import StaticPathConfig
 
     version = "0"
@@ -86,7 +87,53 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
     except RuntimeError:
         # already registered (e.g. after a reload)
         pass
-    add_extra_js_url(hass, f"{FRONTEND_URL_BASE}/htha-time-program-card.js?v={version}")
+
+    url = f"{FRONTEND_URL_BASE}/{CARD_FILE}?v={version}"
+
+    async def _register_resource(_event=None) -> None:
+        if await _async_ensure_lovelace_resource(hass, url):
+            return
+        # YAML mode or unknown Lovelace internals: load the card on every page instead
+        from homeassistant.components.frontend import add_extra_js_url
+
+        add_extra_js_url(hass, url)
+
+    if hass.state is CoreState.running:
+        await _register_resource()
+    else:
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _register_resource)
+
+
+async def _async_ensure_lovelace_resource(hass: HomeAssistant, url: str) -> bool:
+    """Create or update the dashboard resource for the card (storage mode only)."""
+    try:
+        lovelace = hass.data.get("lovelace")
+        if lovelace is None:
+            return False
+        if isinstance(lovelace, dict):
+            mode = lovelace.get("mode") or lovelace.get("resource_mode")
+            resources = lovelace.get("resources")
+        else:
+            mode = getattr(lovelace, "resource_mode", None) or getattr(lovelace, "mode", None)
+            resources = getattr(lovelace, "resources", None)
+        if mode != "storage" or resources is None:
+            return False
+        if not getattr(resources, "loaded", True):
+            await resources.async_load()
+            resources.loaded = True
+        base = url.split("?", 1)[0]
+        for item in resources.async_items():
+            if item.get("url", "").split("?", 1)[0] == base:
+                if item.get("url") != url:
+                    await resources.async_update_item(item["id"], {"res_type": "module", "url": url})
+                    _LOGGER.info("Updated dashboard resource %s", url)
+                return True
+        await resources.async_create_item({"res_type": "module", "url": url})
+        _LOGGER.info("Registered dashboard resource %s", url)
+        return True
+    except Exception as ex:  # noqa: BLE001
+        _LOGGER.debug("Could not register dashboard resource: %s", ex)
+        return False
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: HtHAConfigEntry) -> bool:

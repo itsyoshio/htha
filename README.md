@@ -215,6 +215,12 @@ The operating mode select entity supports the following options:
 | Emergency | Emergency operation |
 | Standby | Standby mode |
 
+## Heat Pump Clock
+
+The date/time entity shows the clock of the heat pump. It is read hourly (and after every change)
+and extrapolated in between; the attribute `offset_seconds` shows the difference to Home Assistant.
+Setting the entity writes the new date/time, the **Sync** button writes Home Assistant's time.
+
 ## Time Programs
 
 The **Time Programs** sensor exposes all time programs of the heat pump (e.g. `0 = Warmwasser`,
@@ -226,7 +232,7 @@ size (usually 15 minutes). Writing requires the **Allow writing** switch to be o
 
 ### Lovelace card
 
-The integration ships a weekly time program card (loaded automatically, no extra resource needed):
+The integration ships a weekly time program card. It is registered as dashboard resource automatically (storage mode dashboards):
 
 ```yaml
 type: custom:htha-time-program-card
