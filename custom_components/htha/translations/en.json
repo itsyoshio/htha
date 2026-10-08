@@ -249,5 +249,101 @@
                 "name": "Sync Heat Pump Date/Time"
             }
         }
+    },
+    "selector": {
+        "days": {
+            "options": {
+                "all": "Every day",
+                "weekdays": "Monday to Friday",
+                "weekend": "Saturday and Sunday",
+                "mon": "Monday",
+                "tue": "Tuesday",
+                "wed": "Wednesday",
+                "thu": "Thursday",
+                "fri": "Friday",
+                "sat": "Saturday",
+                "sun": "Sunday"
+            }
+        }
+    },
+    "services": {
+        "set_time_window": {
+            "name": "Set time window",
+            "description": "Sets one active window per day for a time program (off before, on inside, off after). Requires write access to be enabled.",
+            "fields": {
+                "config_entry_id": {
+                    "name": "Heat pump",
+                    "description": "Only needed if more than one heat pump is configured."
+                },
+                "time_program": {
+                    "name": "Time program",
+                    "description": "Index or name of the time program, e.g. 0 / \"Warmwasser\" or 1 / \"Zirkulationspumpe\" (see the Time Programs sensor)."
+                },
+                "days": {
+                    "name": "Days",
+                    "description": "Days to change. Default: every day."
+                },
+                "start": {
+                    "name": "Start",
+                    "description": "Start of the active window (15 minute steps)."
+                },
+                "end": {
+                    "name": "End",
+                    "description": "End of the active window (15 minute steps). 00:00 means end of day."
+                },
+                "state": {
+                    "name": "State",
+                    "description": "State of the entry/active window (usually 1 = on)."
+                },
+                "off_state": {
+                    "name": "State outside window",
+                    "description": "State outside of the window (usually 0 = off)."
+                }
+            }
+        },
+        "set_time_program_entry": {
+            "name": "Set time program entry",
+            "description": "Changes a single entry of a time program for the selected days. Requires write access to be enabled.",
+            "fields": {
+                "config_entry_id": {
+                    "name": "Heat pump",
+                    "description": "Only needed if more than one heat pump is configured."
+                },
+                "time_program": {
+                    "name": "Time program",
+                    "description": "Index or name of the time program, e.g. 0 / \"Warmwasser\" or 1 / \"Zirkulationspumpe\" (see the Time Programs sensor)."
+                },
+                "days": {
+                    "name": "Days",
+                    "description": "Days to change. Default: every day."
+                },
+                "entry": {
+                    "name": "Entry",
+                    "description": "Entry number of the day (0 = first)."
+                },
+                "state": {
+                    "name": "State",
+                    "description": "State of the entry/active window (usually 1 = on)."
+                },
+                "start": {
+                    "name": "Start",
+                    "description": "Start of the active window (15 minute steps)."
+                },
+                "end": {
+                    "name": "End",
+                    "description": "End of the active window (15 minute steps). 00:00 means end of day."
+                }
+            }
+        },
+        "refresh_time_programs": {
+            "name": "Refresh time programs",
+            "description": "Reads all time programs from the heat pump immediately (normally refreshed hourly).",
+            "fields": {
+                "config_entry_id": {
+                    "name": "Heat pump",
+                    "description": "Only needed if more than one heat pump is configured."
+                }
+            }
+        }
     }
 }

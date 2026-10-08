@@ -14,8 +14,10 @@ from homeassistant.helpers.update_coordinator import (
 )
 from homeassistant.util import dt as dt_util
 
+from homeassistant.exceptions import HomeAssistantError
 from htheatpump import AioHtHeatpump, HtParams
 from htheatpump.htparams import HtParamValueType
+from htheatpump.httimeprog import TimeProgEntry
 
 from .const import DOMAIN
 
@@ -287,14 +289,7 @@ class HtHACoordinator(DataUpdateCoordinator[dict[str, HtParamValueType]]):
                 now_ts = asyncio.get_running_loop().time()
                 if self.time_programs is None or (now_ts - self._last_time_programs_update) > 3600:
                     try:
-                        _LOGGER.debug("Fetching detailed time programs from heat pump")
-                        progs = await self._heatpump.get_time_progs_async()
-                        detailed_progs = []
-                        for prog in progs:
-                            detailed = await self._heatpump.get_time_prog_async(prog.index, with_entries=True)
-                            detailed_progs.append(detailed.as_json())
-                        self.time_programs = detailed_progs
-                        self._last_time_programs_update = now_ts
+                        await self._fetch_time_programs()
                     except Exception as prog_ex:
                         _LOGGER.warning("Failed to fetch time programs: %s", prog_ex)
 
@@ -351,6 +346,85 @@ class HtHACoordinator(DataUpdateCoordinator[dict[str, HtParamValueType]]):
             finally:
                 # Always disconnect after write
                 await self._disconnect()
+
+    async def _fetch_time_programs(self) -> None:
+        """Read all time programs (with entries) into the cache.
+
+        Must be called under self._connection_lock with an open connection.
+        """
+        assert self._heatpump is not None
+        _LOGGER.debug("Fetching detailed time programs from heat pump")
+        progs = await self._heatpump.get_time_progs_async()
+        detailed_progs = []
+        for prog in progs:
+            detailed = await self._heatpump.get_time_prog_async(prog.index, with_entries=True)
+            detailed_progs.append(detailed.as_json())
+        self.time_programs = detailed_progs
+        self._last_time_programs_update = asyncio.get_running_loop().time()
+
+    async def async_refresh_time_programs(self) -> list[dict]:
+        """Force a re-read of all time programs from the heat pump."""
+        async with self._connection_lock:
+            try:
+                await self._connect()
+                await self._fetch_time_programs()
+            except Exception as ex:
+                self._connected = False
+                raise HomeAssistantError(f"Failed to read time programs: {ex}") from ex
+            finally:
+                await self._disconnect()
+        self.async_update_listeners()
+        return self.time_programs or []
+
+    async def async_write_time_prog_entries(
+        self, idx: int, changes: list[tuple[int, int, TimeProgEntry]]
+    ) -> dict:
+        """Write time program entries and read the whole program back.
+
+        Args:
+            idx: Time program index
+            changes: List of (day, entry number, entry) tuples to write
+
+        Returns:
+            The time program (JSON form) as read back from the heat pump.
+
+        Raises:
+            HomeAssistantError: If communication fails or the heat pump did not accept a value.
+        """
+        mismatches: list[str] = []
+        async with self._connection_lock:
+            try:
+                await self._connect()
+                if self._heatpump is None:
+                    raise HomeAssistantError("Heat pump instance not initialized")
+                for day, num, entry in changes:
+                    result = await self._heatpump.set_time_prog_entry_async(idx, day, num, entry)
+                    _LOGGER.info(
+                        "Set time program %d day %d entry %d to %s (result: %s)",
+                        idx, day, num, entry, result,
+                    )
+                    if result != entry:
+                        mismatches.append(f"day {day} entry {num}: sent {entry}, got {result}")
+                prog = await self._heatpump.get_time_prog_async(idx, with_entries=True)
+                prog_json = prog.as_json()
+                if self.time_programs is not None:
+                    self.time_programs = [
+                        prog_json if p.get("index") == idx else p for p in self.time_programs
+                    ]
+            except HomeAssistantError:
+                raise
+            except Exception as ex:
+                self._connected = False
+                raise HomeAssistantError(f"Failed to write time program {idx}: {ex}") from ex
+            finally:
+                await self._disconnect()
+
+        self.async_update_listeners()
+        if mismatches:
+            raise HomeAssistantError(
+                "Heat pump did not accept all time program values: " + "; ".join(mismatches)
+            )
+        return prog_json
 
     async def async_get_datetime(self) -> datetime | None:
         """Fetch the heat pump's date/time.

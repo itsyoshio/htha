@@ -22,6 +22,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import HtHACoordinator
+from .services import async_setup_services
 
 if TYPE_CHECKING:
     pass
@@ -57,6 +58,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         True if setup was successful
     """
     _LOGGER.info("Setting up %s integration", DOMAIN)
+    async_setup_services(hass)
     return True
 
 

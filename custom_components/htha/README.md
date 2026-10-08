@@ -141,6 +141,49 @@ The operating mode select entity supports the following options:
 | Emergency | Emergency operation |
 | Standby | Standby mode |
 
+## Time Programs
+
+The **Time Programs** sensor exposes all time programs of the heat pump (e.g. `0 = Warmwasser`,
+`1 = Zirkulationspumpe`, `2 = Heizung`) as attributes. They are refreshed once per hour and
+immediately after a change made through one of the services below.
+
+Days are numbered `0 = Monday` ... `6 = Sunday`. Times must be multiples of the program's step
+size (usually 15 minutes). Writing requires the **Allow writing** switch to be on.
+
+### `htha.set_time_window`
+
+Sets one active window per day (off before, on inside, off after). Unused entries are filled with
+`24:00-24:00`, exactly like the heat pump does. Only entries that actually change are written.
+
+```yaml
+action: htha.set_time_window
+data:
+  time_program: Warmwasser   # or 0
+  days: [weekdays]           # all (default), weekdays, weekend, mon..sun
+  start: "11:00"
+  end: "15:00"               # "00:00" = end of day
+```
+
+### `htha.set_time_program_entry`
+
+Low-level: changes one entry (`entry`, 0-based) of the selected days.
+
+```yaml
+action: htha.set_time_program_entry
+data:
+  time_program: Heizung
+  days: [sat, sun]
+  entry: 1
+  state: 2
+  start: "06:00"
+  end: "22:00"
+```
+
+### `htha.refresh_time_programs`
+
+Reads all time programs immediately, e.g. after changing them on the heat pump display.
+All three services return the resulting time program(s) as response data.
+
 ## Write Protection
 
 For safety, the integration includes a write protection feature:

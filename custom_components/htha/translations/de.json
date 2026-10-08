@@ -249,5 +249,101 @@
                 "name": "Wärmepumpe Datum/Zeit synch."
             }
         }
+    },
+    "selector": {
+        "days": {
+            "options": {
+                "all": "Jeden Tag",
+                "weekdays": "Montag bis Freitag",
+                "weekend": "Samstag und Sonntag",
+                "mon": "Montag",
+                "tue": "Dienstag",
+                "wed": "Mittwoch",
+                "thu": "Donnerstag",
+                "fri": "Freitag",
+                "sat": "Samstag",
+                "sun": "Sonntag"
+            }
+        }
+    },
+    "services": {
+        "set_time_window": {
+            "name": "Zeitfenster setzen",
+            "description": "Setzt pro Tag ein aktives Zeitfenster für ein Zeitprogramm (davor aus, darin an, danach aus). Schreibzugriff muss aktiviert sein.",
+            "fields": {
+                "config_entry_id": {
+                    "name": "Wärmepumpe",
+                    "description": "Nur nötig, wenn mehr als eine Wärmepumpe eingerichtet ist."
+                },
+                "time_program": {
+                    "name": "Zeitprogramm",
+                    "description": "Index oder Name des Zeitprogramms, z. B. 0 / \"Warmwasser\" oder 1 / \"Zirkulationspumpe\" (siehe Sensor Zeitprogramme)."
+                },
+                "days": {
+                    "name": "Tage",
+                    "description": "Zu ändernde Tage. Standard: jeden Tag."
+                },
+                "start": {
+                    "name": "Beginn",
+                    "description": "Beginn des aktiven Zeitfensters (15-Minuten-Schritte)."
+                },
+                "end": {
+                    "name": "Ende",
+                    "description": "Ende des aktiven Zeitfensters (15-Minuten-Schritte). 00:00 bedeutet Tagesende."
+                },
+                "state": {
+                    "name": "Zustand",
+                    "description": "Zustand des Eintrags bzw. im Zeitfenster (meist 1 = an)."
+                },
+                "off_state": {
+                    "name": "Zustand außerhalb",
+                    "description": "Zustand außerhalb des Zeitfensters (meist 0 = aus)."
+                }
+            }
+        },
+        "set_time_program_entry": {
+            "name": "Zeitprogramm-Eintrag setzen",
+            "description": "Ändert einen einzelnen Eintrag eines Zeitprogramms für die gewählten Tage. Schreibzugriff muss aktiviert sein.",
+            "fields": {
+                "config_entry_id": {
+                    "name": "Wärmepumpe",
+                    "description": "Nur nötig, wenn mehr als eine Wärmepumpe eingerichtet ist."
+                },
+                "time_program": {
+                    "name": "Zeitprogramm",
+                    "description": "Index oder Name des Zeitprogramms, z. B. 0 / \"Warmwasser\" oder 1 / \"Zirkulationspumpe\" (siehe Sensor Zeitprogramme)."
+                },
+                "days": {
+                    "name": "Tage",
+                    "description": "Zu ändernde Tage. Standard: jeden Tag."
+                },
+                "entry": {
+                    "name": "Eintrag",
+                    "description": "Nummer des Eintrags am Tag (0 = erster)."
+                },
+                "state": {
+                    "name": "Zustand",
+                    "description": "Zustand des Eintrags bzw. im Zeitfenster (meist 1 = an)."
+                },
+                "start": {
+                    "name": "Beginn",
+                    "description": "Beginn des aktiven Zeitfensters (15-Minuten-Schritte)."
+                },
+                "end": {
+                    "name": "Ende",
+                    "description": "Ende des aktiven Zeitfensters (15-Minuten-Schritte). 00:00 bedeutet Tagesende."
+                }
+            }
+        },
+        "refresh_time_programs": {
+            "name": "Zeitprogramme neu einlesen",
+            "description": "Liest alle Zeitprogramme sofort von der Wärmepumpe (sonst stündlich).",
+            "fields": {
+                "config_entry_id": {
+                    "name": "Wärmepumpe",
+                    "description": "Nur nötig, wenn mehr als eine Wärmepumpe eingerichtet ist."
+                }
+            }
+        }
     }
 }
